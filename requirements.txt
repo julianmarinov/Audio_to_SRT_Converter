@@ -1,13 +1,8 @@
-whisper~=1.1.10
-six~=1.16.0
-pip~=23.2.1
-distro~=1.9.0
-Jinja2~=3.1.3
-filelock~=3.13.1
+openai-whisper>=20231117
+torch>=2.2
+
+# macOS app-bundling tools (used only if packaging with `python setup.py py2app`)
 modulegraph~=0.19.6
 py2app~=0.28.7
 macholib~=1.16.3
-setuptools~=69.2.0
 altgraph~=0.17.4
-typing_extensions~=4.10.0
-torch~=2.2.1

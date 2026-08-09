@@ -1,0 +1,9 @@
+.venv/
+.venv-macos/
+venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.DS_Store
+build/
+dist/

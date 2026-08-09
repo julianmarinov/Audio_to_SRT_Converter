@@ -1,48 +1,51 @@
-Here is a simple guide to set up the environment to run the Audio to SRT Converter script on both Mac and Windows:
+Here is a simple guide to set up the environment to run the Audio to SRT Converter script on both Mac (including Apple Silicon / M1/M2/M3) and Windows:
 
 ### Dependencies List:
-1. Python
+1. Python 3.9+ (3.12 recommended)
 2. Tkinter (usually comes with Python)
-3. Whisper
-4. datetime (comes with Python)
-5. threading (comes with Python)
-6. os (comes with Python)
+3. openai-whisper (PyPI package name — do NOT `pip install whisper`, that is an unrelated package)
+4. torch (PyTorch — provides CUDA, Apple Silicon MPS, or CPU acceleration automatically)
+5. ffmpeg (external binary, required by Whisper for audio decoding)
 
 ### Installation Instructions:
 
 #### For Both Mac and Windows:
 
 **Python**:
-- Go to the [official Python website](https://www.python.org/downloads/).
-- Download the latest version of Python for your operating system (Windows or macOS).
+- Go to the [official Python website](https://www.python.org/downloads/) (or on Mac, `brew install python@3.12`).
 - Run the installer and follow the instructions. Make sure to check the box that says "Add Python to PATH" during installation on Windows.
 
-**Whisper**:
-- Open your terminal (Mac) or command prompt/powershell (Windows).
-- Install Whisper by running the following command:
-  ```
-  pip install git+https://github.com/openai/whisper.git
-  ```
+**Set up a virtual environment (recommended)**:
+```
+python3 -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+This installs `torch` and `openai-whisper` (correct package name) from `requirements.txt`.
+
+**ffmpeg**:
+- On Mac: `brew install ffmpeg` (requires [Homebrew](https://brew.sh/))
+- On Windows: download a build from [ffmpeg.org](https://ffmpeg.org) and add it to your PATH.
 
 **Tkinter**:
-- Tkinter should already be installed with Python. If it is not, you can install it using the following command:
-  - On Windows, Tkinter is included with the Python installer.
-  - On Mac, you can run:
-    ```
-    brew install python-tk
-    ```
-    You will need Homebrew installed for this command, which you can get from [Homebrew's website](https://brew.sh/).
+- On Windows, Tkinter is included with the Python installer.
+- On Mac, if `import tkinter` fails, run:
+  ```
+  brew install python-tk@3.12
+  ```
+  (match the version suffix to your Python version)
 
-Once Python and Whisper are installed, your friend should be able to run the script by navigating to the folder containing the script in the terminal (Mac) or command prompt/powershell (Windows) and running the command:
-
+Once everything is installed, run the app with:
 ```
-python script_name.py
+python main.py
 ```
-Replace `script_name.py` with the actual name of the script file.
 
-If any errors occur relating to missing packages, they can typically be installed using `pip install package_name`, replacing `package_name` with the name of the required package.
+### Apple Silicon (M1/M2/M3) notes
+- No Rosetta / x86_64 workaround is needed — `torch` and `openai-whisper` both ship native arm64 wheels.
+- The script auto-detects the best available device at runtime: NVIDIA CUDA GPU > Apple Silicon GPU (MPS) > CPU. You can confirm which device was picked from the "Loading model on ..." status message, or via the Help button in the app.
+- The "large" model is fairly slow even on an M1 Pro GPU; "small" or "medium" are a good speed/accuracy tradeoff for everyday use.
 
 ### Additional Notes:
-- The `datetime`, `threading`, and `os` modules are part of the Python Standard Library and should not require any additional installation steps.
-- If you are not able to run `pip` commands directly, you might need to use `python -m pip` instead (e.g., `python -m pip install whisper`).
-- If your friend is using an M1/M2 Mac and encounters issues, they may need to run `arch -x86_64 /bin/bash` before the pip install command to switch to the x86 architecture in the terminal, as some packages may not yet have ARM support.
+- If you are not able to run `pip` commands directly, you might need to use `python -m pip` instead.
+- If any errors occur relating to missing packages, they can typically be installed using `pip install package_name`.
