@@ -1,0 +1,10 @@
+# Optional accelerated backends - auto-detected and preferred over
+# openai-whisper if installed (see backends.select_backend). Neither is
+# required; openai-whisper (in requirements.txt) always works as a fallback.
+
+# Fastest option on Apple Silicon (native Metal GPU). macOS + arm64 only.
+mlx-whisper>=0.4.0
+
+# Faster than openai-whisper on CUDA and CPU. No MPS support - CPU-only on
+# Mac, so mlx-whisper is preferred there when both are installed.
+faster-whisper>=1.0.0

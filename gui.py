@@ -6,7 +6,7 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
-from backends import get_device
+from backends import select_backend
 from transcription_service import TranscriptionService
 
 
@@ -70,7 +70,8 @@ class AudioToSRTConverter(tk.Tk):
         help_window.title("Help Information")
         help_window.geometry("650x260")
 
-        device = get_device()
+        backend = select_backend()
+        device = backend.device_label()
         help_text = f"""
 What this script does?
 This script creates a complete .srt file (Transcription + timing) based on the provided audio file.
@@ -79,8 +80,9 @@ Which model to choose?
 "Tiny" is the fastest model but least accurate, while "Large" is the slowest, but almost 100% accurate.
 Using the large model requires a powerful machine and not too long an audio file.
 
-Detected compute device: {device.type}
-{"(NVIDIA GPU acceleration)" if device.type == "cuda" else "(Apple Silicon GPU acceleration)" if device.type == "mps" else "(CPU only - this will be significantly slower, especially for larger models)"}
+Selected backend: {backend.name}
+Detected compute device: {device}
+{"(NVIDIA GPU acceleration)" if "cuda" in device else "(Apple Silicon GPU acceleration)" if "mps" in device else "(CPU only - this will be significantly slower, especially for larger models)"}
 
 - Supported audio file formats: MP3, WAV, M4A
 - Recommended maximum file size: 500MB

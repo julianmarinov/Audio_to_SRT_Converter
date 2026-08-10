@@ -36,9 +36,13 @@ class TranscriptionService:
                 raise RuntimeError("ffmpeg not found in PATH. Please install ffmpeg.")
 
             backend = select_backend()
-            update_status(f"Loading model on {backend.device_label()}...")
+            update_status(f"Loading {backend.name} model on {backend.device_label()}...")
+
+            def on_progress(percent: int, mb_done: float, mb_total: float) -> None:
+                update_status(f"Downloading model... {percent}% ({mb_done:.0f}MB/{mb_total:.0f}MB)")
+
             update_status("Transcribing...")
-            result = backend.transcribe(audio_file_path, model_type)
+            result = backend.transcribe(audio_file_path, model_type, on_progress=on_progress)
 
             if self.cancelled:
                 update_status("Transcription cancelled.")
