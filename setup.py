@@ -113,7 +113,13 @@ for _entry in sorted(_site_packages.iterdir()):
         DATA_FILES.append((f"lib/python{PY_VER}", [str(_entry)]))
 
 OPTIONS = {
-    "argv_emulation": True,
+    # argv_emulation makes py2app hook AppKit's Open Documents/Open URLs
+    # event handling to emulate argv - which fights with Tkinter's own
+    # Cocoa menu-bar setup at startup (Tk_SetWindowMenubar creating an
+    # NSMenuItem hits an assertion failure -> uncaught NSException ->
+    # abort). Not needed here anyway since the app doesn't accept argv
+    # (files are added via its own queue UI, not Finder drag-to-icon).
+    "argv_emulation": False,
     "packages": PACKAGES,
     "includes": [
         "backends", "subtitles", "chunking", "transcription_service",
