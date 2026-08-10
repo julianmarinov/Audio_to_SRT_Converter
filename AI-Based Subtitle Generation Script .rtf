@@ -1,0 +1,135 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2639
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 # AI-Based Subtitle Generation Script\
+\
+An advanced Python application that automates the process of generating subtitles for videos. This script uses the Whisper AI model for automatic language detection, transcription, and timestamp generation, making the creation of accurate subtitles fast and efficient. \
+\
+## Table of Contents\
+\
+- [Features](#features)\
+- [Installation](#installation)\
+- [Usage](#usage)\
+- [GUI Overview](#gui-overview)\
+- [Model Selection Guide](#model-selection-guide)\
+- [Contributing](#contributing)\
+- [License](#license)\
+- [Acknowledgments](#acknowledgments)\
+\
+## Features\
+\
+- **Automatic Language Detection and Transcription**: Utilizes the Whisper AI model to automatically detect the language of the audio and transcribe speech to text with high accuracy.\
+- **Subtitle Timing**: Generates precise timestamps for each subtitle segment, formatted in the standard .srt format.\
+- **User-Friendly GUI**: Built with Tkinter, the script provides an intuitive graphical interface, making it easy for users to select audio files, choose model types, and manage the transcription process.\
+- **GPU Acceleration**: Supports CUDA-enabled GPUs to accelerate the transcription process using PyTorch, reducing processing time significantly for large audio files.\
+- **Customizable Accuracy and Speed**: Offers multiple Whisper model sizes (tiny, base, small, medium, large) to balance between accuracy and processing speed based on user needs.\
+- **Real-Time Status Updates**: Displays real-time progress and allows users to cancel the transcription process if needed.\
+\
+## Installation\
+\
+To set up the AI-Based Subtitle Generation Script on your local machine, follow these steps:\
+\
+### Prerequisites\
+\
+- Python 3.x installed on your system. Download it from [Python.org](https://www.python.org/downloads/).\
+\
+### Clone the Repository\
+\
+1. Clone the repository to your local machine using Git:\
+   ```bash\
+   git clone https://github.com/yourusername/ai-subtitle-generator.git\
+   cd ai-subtitle-generator\
+   ```\
+\
+### Install Required Dependencies\
+\
+2. Install the necessary Python packages. It is recommended to use a virtual environment:\
+\
+   ```bash\
+   pip install torch tkinter pillow openai-whisper\
+   ```\
+\
+### Install PyTorch\
+\
+3. Follow the instructions on the [PyTorch website](https://pytorch.org/get-started/locally/) to install the appropriate version of PyTorch for your system.\
+\
+## Usage\
+\
+To use the AI-Based Subtitle Generation Script, follow these steps:\
+\
+### Running the Script\
+\
+1. Navigate to the project directory:\
+   ```bash\
+   cd ai-subtitle-generator\
+   ```\
+\
+2. Run the script:\
+   ```bash\
+   python subtitle_generator.py\
+   ```\
+\
+### Using the GUI\
+\
+- **Select an Audio File**: Click "Browse" to choose the audio file you wish to transcribe. Supported formats include MP3, WAV, and M4A.\
+- **Choose Model Type**: Select a Whisper model type from the dropdown menu based on your requirements for speed and accuracy.\
+- **Set Output Path**: Specify where the generated .srt subtitle file should be saved.\
+- **Start Transcription**: Click "Process" to begin the transcription. The progress bar will indicate the status of the transcription process.\
+- **Cancel Transcription**: If necessary, click "Cancel" to stop the transcription process.\
+- **View Help**: Click "Help" for detailed instructions on how to use the script.\
+\
+## GUI Overview\
+\
+The script features a graphical user interface (GUI) designed for ease of use:\
+\
+- **Audio File Selection**: A text entry field and "Browse" button to select the audio file.\
+- **SRT File Save Location**: A text entry field and "Save As" button to specify the output path for the .srt file.\
+- **Model Selection Dropdown**: A combo box to select the Whisper model size (tiny, base, small, medium, large).\
+- **Progress Bar**: Shows the progress of the transcription process.\
+- **Status Label**: Displays the current status of the transcription process.\
+- **Control Buttons**: Buttons to start, cancel, and access help information for the transcription process.\
+\
+## Model Selection Guide\
+\
+The Whisper AI model provides several options to balance between speed and accuracy:\
+\
+- **Tiny**: Fastest model, less accurate. Suitable for quick, rough transcriptions.\
+- **Base**: Good balance between speed and accuracy for general use.\
+- **Small**: Offers higher accuracy with moderate processing time.\
+- **Medium**: Higher accuracy, requires more processing power and time.\
+- **Large**: Most accurate, but slowest. Requires a powerful system, ideally with a CUDA-enabled GPU for faster processing.\
+\
+**Recommendation**: Use the "large" model for the highest accuracy, especially for long or complex audio files, if you have the necessary hardware resources.\
+\
+## Contributing\
+\
+Contributions are welcome! If you have suggestions or improvements, please follow these steps:\
+\
+1. Fork the repository.\
+2. Create a new branch (`git checkout -b feature-branch`).\
+3. Commit your changes (`git commit -m 'Add new feature'`).\
+4. Push to the branch (`git push origin feature-branch`).\
+5. Open a pull request.\
+\
+## License\
+\
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.\
+\
+## Acknowledgments\
+\
+- **Whisper AI**: Developed by OpenAI, used for automatic transcription and language detection.\
+- **PyTorch**: An open-source machine learning library used for GPU acceleration.\
+- **Tkinter**: A standard GUI toolkit for Python, used to build the application interface.\
+\
+---\
+\
+### Additional Notes\
+\
+- **Ensure Compatibility**: The script is tested on Python 3.x. Ensure all dependencies are installed correctly.\
+- **File Size and Duration**: Recommended maximum audio file size is 500MB, with a maximum duration of 2 hours for optimal performance.\
+\
+Feel free to customize and expand upon this README to fit your repository and user needs. By following these practices, your README will be informative, user-friendly, and professional, providing a solid foundation for your GitHub project.}
