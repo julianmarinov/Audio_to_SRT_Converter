@@ -3,13 +3,17 @@ dependency - errors are reported through callbacks so this stays
 independently testable."""
 from __future__ import annotations
 
+import contextlib
 import os
+import re
 import shutil
 import tempfile
 import traceback
+from pathlib import Path
 from typing import Callable, Optional
 
 import chunking
+import remote_input
 from backends import LoadedModel, Segment, TranscriptionBackend, TranscriptionResult, select_backend
 from subtitles import build_json, build_srt, build_txt, build_vtt, with_extension, write_text_file
 
@@ -34,6 +38,11 @@ def _is_oom_error(exc: Exception) -> bool:
     return "out of memory" in text or " oom" in text
 
 
+def _sanitize_filename(name: str) -> str:
+    name = re.sub(r'[<>:"/\\|?*]', "_", name).strip()
+    return name or "youtube_audio"
+
+
 class TranscriptionService:
     def __init__(self) -> None:
         self.cancelled = False
@@ -44,22 +53,25 @@ class TranscriptionService:
     def transcribe(
         self,
         input_path: str,
-        output_base_path: str,
         model_type: str,
         formats: set[str],
         update_status: StatusCallback,
         update_transcription_text: TextCallback,
         on_error: Optional[ErrorCallback] = None,
         chunk_minutes: float = chunking.DEFAULT_CHUNK_MINUTES,
+        output_base_path: Optional[str] = None,
     ) -> None:
-        """Transcribe a single file to an explicit output base path."""
+        """Transcribe a single file or URL. input_path may be a local path
+        or a YouTube (or other yt-dlp supported) URL. output_base_path is
+        auto-derived if not given: next to the source for local files, or
+        into ~/Downloads named after the video's title for a URL."""
         self.cancelled = False
         model = self._load_model(model_type, update_status, on_error)
         if model is None:
             return
         self._process_file(
-            model, input_path, output_base_path, model_type, formats,
-            update_status, update_transcription_text, on_error, chunk_minutes,
+            model, input_path, model_type, formats,
+            update_status, update_transcription_text, on_error, chunk_minutes, output_base_path,
         )
 
     def transcribe_batch(
@@ -74,9 +86,11 @@ class TranscriptionService:
         on_item_complete: Optional[Callable[[str], None]] = None,
         chunk_minutes: float = chunking.DEFAULT_CHUNK_MINUTES,
     ) -> None:
-        """Transcribe a queue of files, writing each output next to its
-        source file. The model is loaded once and reused across all
-        items. One item's failure doesn't stop the rest of the batch."""
+        """Transcribe a queue of files and/or URLs, writing each output
+        next to its source file (or into ~/Downloads for a URL, named
+        after the video's title). The model is loaded once and reused
+        across all items. One item's failure doesn't stop the rest of
+        the batch."""
         self.cancelled = False
         if not input_paths:
             return
@@ -91,16 +105,15 @@ class TranscriptionService:
                 update_status("Batch cancelled.")
                 return
 
-            name = os.path.basename(input_path)
+            name = input_path if remote_input.is_url(input_path) else os.path.basename(input_path)
             update_status(f"Processing {i}/{total}: {name}")
             if on_item_status:
                 item_status: StatusCallback = lambda msg, path=input_path: on_item_status(path, msg)
             else:
                 item_status = lambda msg, i=i, name=name: update_status(f"[{i}/{total}] {name}: {msg}")
 
-            output_base = os.path.splitext(input_path)[0]
             self._process_file(
-                model, input_path, output_base, model_type, formats,
+                model, input_path, model_type, formats,
                 item_status, update_transcription_text, on_error, chunk_minutes,
             )
             if on_item_complete:
@@ -142,31 +155,46 @@ class TranscriptionService:
         self,
         model: LoadedModel,
         input_path: str,
-        output_base_path: str,
         model_type: str,
         formats: set[str],
         update_status: StatusCallback,
         update_transcription_text: TextCallback,
         on_error: Optional[ErrorCallback],
         chunk_minutes: float,
+        output_base_path: Optional[str] = None,
     ) -> None:
         try:
             if not formats:
                 raise ValueError("Select at least one output format.")
 
-            result = self._run_transcription(input_path, model, model_type, update_status, chunk_minutes)
-            if result is None:  # cancelled
-                update_status("Transcription cancelled.")
-                return
+            with contextlib.ExitStack() as stack:
+                actual_path = input_path
+                resolved_output_base = output_base_path
 
-            update_status("Formatting subtitles...")
-            for fmt in formats:
-                content = _FORMAT_BUILDERS[fmt](result.segments, result.language)
-                write_text_file(content, with_extension(output_base_path, fmt))
+                if remote_input.is_url(input_path):
+                    update_status("Downloading audio from URL...")
+                    tmp_dir = stack.enter_context(tempfile.TemporaryDirectory(prefix="audio_to_srt_yt_"))
+                    actual_path, title = remote_input.download_audio(input_path, tmp_dir)
+                    if resolved_output_base is None:
+                        downloads_dir = Path.home() / "Downloads"
+                        downloads_dir.mkdir(parents=True, exist_ok=True)
+                        resolved_output_base = str(downloads_dir / _sanitize_filename(title))
+                elif resolved_output_base is None:
+                    resolved_output_base = os.path.splitext(input_path)[0]
 
-            full_text = "\n".join(seg.text for seg in result.segments)
-            update_transcription_text(full_text)
-            update_status("Subtitle file created successfully.")
+                result = self._run_transcription(actual_path, model, model_type, update_status, chunk_minutes)
+                if result is None:  # cancelled
+                    update_status("Transcription cancelled.")
+                    return
+
+                update_status("Formatting subtitles...")
+                for fmt in formats:
+                    content = _FORMAT_BUILDERS[fmt](result.segments, result.language)
+                    write_text_file(content, with_extension(resolved_output_base, fmt))
+
+                full_text = "\n".join(seg.text for seg in result.segments)
+                update_transcription_text(full_text)
+                update_status("Subtitle file created successfully.")
         except Exception as e:
             tb = traceback.format_exc()
             update_status("Error during transcription.")

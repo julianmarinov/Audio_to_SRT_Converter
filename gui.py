@@ -5,9 +5,10 @@ import os
 import threading
 import tkinter as tk
 from pathlib import Path
-from tkinter import filedialog, messagebox, scrolledtext, ttk
+from tkinter import filedialog, messagebox, scrolledtext, simpledialog, ttk
 
 import chunking
+import remote_input
 from backends import select_backend
 from transcription_service import AUDIO_VIDEO_EXTENSIONS, TranscriptionService
 
@@ -76,6 +77,7 @@ class AudioToSRTConverter(tk.Tk):
         queue_btn_frm.grid(row=3, column=0, columnspan=4, sticky="ew", pady=5)
         ttk.Button(queue_btn_frm, text="Add Files...", command=self._add_files).pack(side="left", padx=(0, 5))
         ttk.Button(queue_btn_frm, text="Add Folder...", command=self._add_folder).pack(side="left", padx=(0, 5))
+        ttk.Button(queue_btn_frm, text="Add YouTube URL...", command=self._add_url).pack(side="left", padx=(0, 5))
         ttk.Button(queue_btn_frm, text="Remove Selected", command=self._remove_selected).pack(side="left", padx=(0, 5))
         ttk.Button(queue_btn_frm, text="Clear Queue", command=self._clear_queue).pack(side="left")
 
@@ -108,9 +110,11 @@ class AudioToSRTConverter(tk.Tk):
         device = backend.device_label()
         help_text = f"""
 What this script does?
-Add one or more audio/video files (or a whole folder) to the queue, pick a model and
-output format(s), and click "Transcribe Queue". Each file's subtitles are written next
-to the source file.
+Add one or more audio/video files (or a whole folder, or a YouTube URL) to the queue,
+pick a model and output format(s), and click "Transcribe Queue". Each file's subtitles
+are written next to the source file; a YouTube URL's audio is downloaded locally first
+(one-time network fetch) and its subtitles are saved to ~/Downloads, named after the
+video's title - transcription itself always runs entirely on-device.
 
 Which model to choose?
 "Tiny" is the fastest model but least accurate, while "Large" is the slowest, but almost 100% accurate.
@@ -143,10 +147,21 @@ so memory usage stays bounded and progress updates incrementally.
             if path.is_file() and path.suffix.lower() in _AUDIO_VIDEO_SUFFIXES:
                 self._add_to_queue(str(path))
 
+    def _add_url(self) -> None:
+        url = simpledialog.askstring("Add YouTube URL", "Enter a video URL:", parent=self)
+        if not url:
+            return
+        url = url.strip()
+        if not remote_input.is_url(url):
+            messagebox.showerror("Invalid URL", "That doesn't look like a valid http(s) URL.")
+            return
+        self._add_to_queue(url)
+
     def _add_to_queue(self, path: str) -> None:
         if path in self._queue_rows:
             return
-        iid = self.queue_tree.insert("", "end", text=os.path.basename(path), values=("Queued",))
+        display = path if remote_input.is_url(path) else os.path.basename(path)
+        iid = self.queue_tree.insert("", "end", text=display, values=("Queued",))
         self._queue_rows[path] = iid
 
     def _remove_selected(self) -> None:

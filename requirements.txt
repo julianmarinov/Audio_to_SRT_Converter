@@ -1,5 +1,6 @@
 openai-whisper>=20231117
 torch>=2.2
+yt-dlp>=2024.1.0
 
 # macOS app-bundling tools (used only if packaging with `python setup.py py2app`)
 modulegraph~=0.19.6

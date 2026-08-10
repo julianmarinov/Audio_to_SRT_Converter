@@ -1,43 +1,45 @@
 # Audio to SRT Converter
 
-This repository contains a Python script for converting audio files into SubRip Subtitle (SRT) format using OpenAI's Whisper model. The script is equipped with a simple and user-friendly graphical user interface (GUI), allowing easy operation without the need for command-line interaction.
+This repository contains a Python script for converting audio and video files into
+subtitle files (.srt, .vtt, .txt, .json) using OpenAI's Whisper model. The script is
+equipped with a simple and user-friendly graphical user interface (GUI), allowing easy
+operation without the need for command-line interaction.
 
 ## Features
-- **Easy-to-use GUI**: Select audio files and save SRT files using a straightforward interface.
-- **Whisper Model Integration**: Utilizes OpenAI's Whisper model for accurate audio transcription.
-- **Local Processing**: All transcriptions are processed locally for privacy.
-- **Multithreaded Performance**: The GUI remains responsive during transcription by using separate threads for processing.
-- **Wide Audio Format Support**: Supports various audio file formats such as MP3, WAV, and M4A.
-- **Customizable Model Selection**: Choose from different Whisper model sizes to balance between performance and accuracy.
+- **Easy-to-use GUI**: Queue up audio/video files, whole folders, or YouTube URLs and
+  transcribe them all in one batch.
+- **Whisper Model Integration**: Auto-selects the fastest available backend -
+  mlx-whisper (Apple Silicon), faster-whisper (CUDA/CPU), or openai-whisper (always
+  available fallback).
+- **Local Processing**: Transcription always runs entirely on-device. The only network
+  activity is the one-time audio download when a YouTube URL is used as input.
+- **Long-file support**: Files over 20 minutes are automatically split into chunks so
+  memory usage stays bounded, with incremental per-chunk progress.
+- **Wide format support**: MP3, WAV, M4A (audio), MP4, MOV (video - audio is extracted
+  automatically); outputs .srt, .vtt, .txt (plain transcript), and/or .json.
+- **Customizable Model Selection**: Choose from different Whisper model sizes to
+  balance between performance and accuracy.
 
 ## Dependencies
-- Python 3.8 or higher
+- Python 3.10 or higher
 - Tkinter
-- Whisper
-
-Python and Tkinter usually come bundled together. Whisper can be installed using pip.
+- ffmpeg
+- See `requirements.txt` (required) and `requirements-optional.txt` (mlx-whisper /
+  faster-whisper, for faster transcription)
 
 ## Installation
-Ensure you have Python 3.8 or higher installed on your system. You can download it from the [official Python website](https://www.python.org/downloads/).
-
-### Install Whisper
-```sh
-pip install git+https://github.com/openai/whisper.git
-```
-Note: On macOS, if you face issues, you might need Homebrew to install the Tkinter separately using `brew install python-tk`. Homebrew can be installed from [Homebrew's website](https://brew.sh/).
+See `Documentation/How to install dependencies.txt` for full setup steps (macOS and
+Windows).
 
 ## Usage
-Run the script using Python from the terminal (Mac) or command prompt/powershell (Windows):
 ```sh
-python audio_to_srt_converter.py
+python main.py
 ```
-Replace `audio_to_srt_converter.py` with the actual path to the script if you're in a different directory.
-
-1. Use the **Browse** button to select the audio file you wish to transcribe.
-2. Choose the save location and name for the SRT file using the **Save As** button.
-3. Select the desired Whisper model size from the dropdown menu.
-4. Click **Process** to start converting the audio to SRT format.
-5. Once processing is done, the SRT file will be saved at your specified location.
+1. Add files via **Add Files...**, a whole folder via **Add Folder...**, or a video URL
+   via **Add YouTube URL...**.
+2. Select the desired Whisper model size and output format(s).
+3. Click **Transcribe Queue**. Each item's subtitles are written next to its source
+   file (or into `~/Downloads`, named after the video's title, for a URL).
 
 ## Contributing
 Contributions, issues, and feature requests are welcome. Feel free to check [issues page](/issues) if you want to contribute.
@@ -47,7 +49,12 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 ## Acknowledgements
 - [OpenAI's Whisper](https://github.com/openai/whisper)
+- [mlx-whisper](https://github.com/ml-explore/mlx-examples) / [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp)
 - Python and the Python community
 
 ## Disclaimer
-This project is not affiliated with OpenAI and uses the Whisper model under the terms of its license. The script does not send any data over the internet, ensuring privacy and security for users.
+This project is not affiliated with OpenAI and uses the Whisper model under the terms
+of its license. Transcription itself is always performed locally on your machine. The
+only outbound network request the app makes is fetching the audio track of a video when
+you explicitly provide a YouTube (or other yt-dlp supported) URL as input.
