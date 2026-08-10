@@ -49,3 +49,27 @@ python main.py
 ### Additional Notes:
 - If you are not able to run `pip` commands directly, you might need to use `python -m pip` instead.
 - If any errors occur relating to missing packages, they can typically be installed using `pip install package_name`.
+- Optional accelerated backends (`mlx-whisper` on Apple Silicon, `faster-whisper` on
+  CUDA/CPU) live in `requirements-optional.txt` - install with
+  `pip install -r requirements-optional.txt` if you want faster transcription than the
+  `openai-whisper` fallback. Auto-detected at runtime; nothing to configure.
+
+### Building a standalone macOS .app (optional)
+Instead of running `python main.py` from a terminal each time, you can build a
+double-clickable app:
+```
+python setup.py py2app
+```
+This bundles Python, all dependencies (including ffmpeg, so the app doesn't need
+Homebrew), and any installed optional backends into `dist/Audio to SRT Converter.app`.
+It's a large build (several GB, mostly torch/mlx/ffmpeg) and can take several minutes.
+
+The resulting app is **unsigned** (no Apple Developer account was used to build it), so
+macOS Gatekeeper will refuse to open it with a plain double-click the first time. To
+approve it once:
+1. Right-click (or Control-click) the app in Finder.
+2. Choose **Open**.
+3. Click **Open** again in the confirmation dialog.
+
+After that first approval, it opens normally (double-click or otherwise) going forward.
+This is a one-time step per machine, standard for any unsigned macOS app.
