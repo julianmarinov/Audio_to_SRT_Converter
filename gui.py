@@ -4,49 +4,42 @@ from __future__ import annotations
 import os
 import threading
 import tkinter as tk
+from pathlib import Path
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
+import chunking
 from backends import select_backend
 from transcription_service import AUDIO_VIDEO_EXTENSIONS, TranscriptionService
+
+_AUDIO_VIDEO_SUFFIXES = {ext.replace("*", "") for ext in AUDIO_VIDEO_EXTENSIONS}
 
 
 class AudioToSRTConverter(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title("Audio to SRT Converter")
-        self.geometry("800x600")
+        self.geometry("820x680")
         self.transcriber = TranscriptionService()
+        self._queue_rows: dict[str, str] = {}  # input_path -> Treeview item id
         self._build_ui()
 
     def _build_ui(self) -> None:
         frm = ttk.Frame(self)
         frm.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # --- Input (audio or video) file
-        ttk.Label(frm, text="Audio/Video File:").grid(row=0, column=0, sticky="e")
-        self.audio_entry = ttk.Entry(frm, width=50)
-        self.audio_entry.grid(row=0, column=1, sticky="ew", padx=5)
-        ttk.Button(frm, text="Browse...", command=self._browse_input).grid(row=0, column=2)
-
-        # --- Output base path (extension per selected format is appended)
-        ttk.Label(frm, text="Save Output As:").grid(row=1, column=0, sticky="e")
-        self.srt_entry = ttk.Entry(frm, width=50)
-        self.srt_entry.grid(row=1, column=1, sticky="ew", padx=5)
-        ttk.Button(frm, text="Save As...", command=self._save_output).grid(row=1, column=2)
-
         # --- Model selector
-        ttk.Label(frm, text="Model:").grid(row=2, column=0, sticky="e")
+        ttk.Label(frm, text="Model:").grid(row=0, column=0, sticky="e")
         self.model_var = tk.StringVar(value="large")
-        combo = ttk.Combobox(frm, textvariable=self.model_var,
-                              values=["tiny", "base", "small", "medium", "large"],
-                              state="readonly")
-        combo.grid(row=2, column=1, sticky="w", padx=5)
-        combo.current(4)
+        model_combo = ttk.Combobox(frm, textvariable=self.model_var,
+                                    values=["tiny", "base", "small", "medium", "large"],
+                                    state="readonly", width=12)
+        model_combo.grid(row=0, column=1, sticky="w", padx=5)
+        model_combo.current(4)
 
         # --- Output formats
-        ttk.Label(frm, text="Formats:").grid(row=3, column=0, sticky="e")
+        ttk.Label(frm, text="Formats:").grid(row=0, column=2, sticky="e")
         fmt_frm = ttk.Frame(frm)
-        fmt_frm.grid(row=3, column=1, sticky="w")
+        fmt_frm.grid(row=0, column=3, sticky="w")
         self.format_vars = {
             "srt": tk.BooleanVar(value=True),
             "vtt": tk.BooleanVar(value=False),
@@ -56,111 +49,162 @@ class AudioToSRTConverter(tk.Tk):
         for fmt, var in self.format_vars.items():
             ttk.Checkbutton(fmt_frm, text=f".{fmt}", variable=var).pack(side="left", padx=(0, 8))
 
+        # --- Chunk length (for auto-splitting long files)
+        ttk.Label(frm, text="Chunk size (min):").grid(row=1, column=0, sticky="e", pady=(5, 0))
+        self.chunk_minutes_var = tk.IntVar(value=int(chunking.DEFAULT_CHUNK_MINUTES))
+        ttk.Spinbox(frm, from_=5, to=60, textvariable=self.chunk_minutes_var, width=5).grid(
+            row=1, column=1, sticky="w", padx=5, pady=(5, 0))
+
+        # --- Queue
+        queue_frm = ttk.Frame(frm)
+        queue_frm.grid(row=2, column=0, columnspan=4, sticky="nsew", pady=(10, 0))
+        frm.rowconfigure(2, weight=1)
+        for c in range(4):
+            frm.columnconfigure(c, weight=1)
+
+        self.queue_tree = ttk.Treeview(queue_frm, columns=("status",), show="tree headings", height=8)
+        self.queue_tree.heading("#0", text="File")
+        self.queue_tree.heading("status", text="Status")
+        self.queue_tree.column("#0", width=420)
+        self.queue_tree.column("status", width=260)
+        scrollbar = ttk.Scrollbar(queue_frm, orient="vertical", command=self.queue_tree.yview)
+        self.queue_tree.configure(yscrollcommand=scrollbar.set)
+        self.queue_tree.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        queue_btn_frm = ttk.Frame(frm)
+        queue_btn_frm.grid(row=3, column=0, columnspan=4, sticky="ew", pady=5)
+        ttk.Button(queue_btn_frm, text="Add Files...", command=self._add_files).pack(side="left", padx=(0, 5))
+        ttk.Button(queue_btn_frm, text="Add Folder...", command=self._add_folder).pack(side="left", padx=(0, 5))
+        ttk.Button(queue_btn_frm, text="Remove Selected", command=self._remove_selected).pack(side="left", padx=(0, 5))
+        ttk.Button(queue_btn_frm, text="Clear Queue", command=self._clear_queue).pack(side="left")
+
         # --- Buttons
         btn_frm = ttk.Frame(frm)
-        btn_frm.grid(row=4, column=1, pady=10)
-        self.go_btn = ttk.Button(btn_frm, text="Transcribe", command=self._on_transcribe)
+        btn_frm.grid(row=4, column=0, columnspan=4, pady=10)
+        self.go_btn = ttk.Button(btn_frm, text="Transcribe Queue", command=self._on_transcribe)
         self.go_btn.pack(side="left", padx=5)
         ttk.Button(btn_frm, text="Cancel", command=self._on_cancel).pack(side="left")
 
         # --- Status + spinner
         self.status_lbl = ttk.Label(frm, text="Ready")
-        self.status_lbl.grid(row=5, column=1, sticky="w")
+        self.status_lbl.grid(row=5, column=0, columnspan=4, sticky="w")
         self.spinner = ttk.Progressbar(frm, mode="indeterminate")
-        self.spinner.grid(row=6, column=1, sticky="ew", pady=5)
+        self.spinner.grid(row=6, column=0, columnspan=4, sticky="ew", pady=5)
 
-        ttk.Button(frm, text="Help", command=self._open_help_window).grid(row=7, column=1, pady=(10, 0), sticky="ew")
+        ttk.Button(frm, text="Help", command=self._open_help_window).grid(
+            row=7, column=0, columnspan=4, pady=(5, 0), sticky="ew")
 
-        # --- Transcribed text
-        self.txt = scrolledtext.ScrolledText(self, height=15, state="disabled")
+        # --- Transcribed text (last completed file)
+        self.txt = scrolledtext.ScrolledText(self, height=12, state="disabled")
         self.txt.pack(fill="both", expand=True, padx=10, pady=10)
-
-        # column config
-        frm.columnconfigure(1, weight=1)
 
     def _open_help_window(self) -> None:
         help_window = tk.Toplevel(self)
         help_window.title("Help Information")
-        help_window.geometry("650x260")
+        help_window.geometry("650x280")
 
         backend = select_backend()
         device = backend.device_label()
         help_text = f"""
 What this script does?
-This script creates a complete .srt file (Transcription + timing) based on the provided audio file.
+Add one or more audio/video files (or a whole folder) to the queue, pick a model and
+output format(s), and click "Transcribe Queue". Each file's subtitles are written next
+to the source file.
 
 Which model to choose?
 "Tiny" is the fastest model but least accurate, while "Large" is the slowest, but almost 100% accurate.
-Using the large model requires a powerful machine and not too long an audio file.
 
 Selected backend: {backend.name}
 Detected compute device: {device}
 {"(NVIDIA GPU acceleration)" if "cuda" in device else "(Apple Silicon GPU acceleration)" if "mps" in device else "(CPU only - this will be significantly slower, especially for larger models)"}
 
+Long files (over 20 minutes) are automatically split into chunks (size configurable above)
+so memory usage stays bounded and progress updates incrementally.
+
 - Supported input formats: MP3, WAV, M4A (audio), MP4, MOV (video - audio track is extracted automatically)
-- Recommended maximum file size: 500MB
-- Recommended maximum audio file duration: 2 hours
+- Recommended maximum file size: 500MB per file
 """
         ttk.Label(help_window, text=help_text, justify=tk.LEFT).pack(padx=10, pady=10)
 
-    def _browse_input(self) -> None:
-        p = filedialog.askopenfilename(
-            title="Select Audio or Video",
+    def _add_files(self) -> None:
+        paths = filedialog.askopenfilenames(
+            title="Select Audio or Video Files",
             filetypes=[("Audio/Video", " ".join(AUDIO_VIDEO_EXTENSIONS)), ("All files", "*.*")]
         )
-        if p:
-            self.audio_entry.delete(0, tk.END)
-            self.audio_entry.insert(0, p)
+        for p in paths:
+            self._add_to_queue(p)
 
-    def _save_output(self) -> None:
-        p = filedialog.asksaveasfilename(
-            defaultextension=".srt",
-            filetypes=[("Subtitles", "*.srt")]
-        )
-        if p:
-            self.srt_entry.delete(0, tk.END)
-            self.srt_entry.insert(0, p)
+    def _add_folder(self) -> None:
+        folder = filedialog.askdirectory(title="Select Folder")
+        if not folder:
+            return
+        for path in sorted(Path(folder).rglob("*")):
+            if path.is_file() and path.suffix.lower() in _AUDIO_VIDEO_SUFFIXES:
+                self._add_to_queue(str(path))
+
+    def _add_to_queue(self, path: str) -> None:
+        if path in self._queue_rows:
+            return
+        iid = self.queue_tree.insert("", "end", text=os.path.basename(path), values=("Queued",))
+        self._queue_rows[path] = iid
+
+    def _remove_selected(self) -> None:
+        for iid in self.queue_tree.selection():
+            path = next((p for p, row_iid in self._queue_rows.items() if row_iid == iid), None)
+            if path:
+                del self._queue_rows[path]
+            self.queue_tree.delete(iid)
+
+    def _clear_queue(self) -> None:
+        self.queue_tree.delete(*self.queue_tree.get_children())
+        self._queue_rows.clear()
 
     def _on_transcribe(self) -> None:
-        audio = self.audio_entry.get().strip()
-        output_base = self.srt_entry.get().strip()
-        model = self.model_var.get()
-        formats = {fmt for fmt, var in self.format_vars.items() if var.get()}
+        input_paths = list(self._queue_rows.keys())
+        if not input_paths:
+            messagebox.showwarning("Empty queue", "Add at least one audio or video file to the queue.")
+            return
 
-        if not audio or not output_base:
-            messagebox.showwarning("Missing files", "Please choose both an input file and output save location.")
-            return
-        if not os.path.isfile(audio):
-            messagebox.showerror("Not found", f"Input file not found:\n{audio}")
-            return
+        formats = {fmt for fmt, var in self.format_vars.items() if var.get()}
         if not formats:
             messagebox.showwarning("No format selected", "Please select at least one output format.")
             return
 
-        # disable UI and start spinner
+        model = self.model_var.get()
+        chunk_minutes = self.chunk_minutes_var.get()
+
+        for path in input_paths:
+            self._set_row_status(path, "Queued")
+
         self.go_btn.config(state="disabled")
         self.spinner.start(10)
 
-        # thread-safe callbacks
         status_cb = lambda msg: self.after(0, self._update_status, msg)
         text_cb = lambda txt: self.after(0, self._update_text, txt)
         error_cb = lambda msg, tb: self.after(0, self._show_error, msg, tb)
+        item_status_cb = lambda path, msg: self.after(0, self._set_row_status, path, msg)
+        item_complete_cb = lambda path: self.after(0, self._set_row_status, path, "Done")
 
         t = threading.Thread(
-            target=self.transcriber.transcribe,
-            args=(audio, output_base, model, formats, status_cb, text_cb, error_cb),
+            target=self.transcriber.transcribe_batch,
+            args=(input_paths, model, formats, status_cb, text_cb, error_cb, item_status_cb, item_complete_cb, chunk_minutes),
             daemon=True
         )
         t.start()
 
+    def _set_row_status(self, path: str, status: str) -> None:
+        iid = self._queue_rows.get(path)
+        if iid and self.queue_tree.exists(iid):
+            self.queue_tree.set(iid, "status", status)
+
     def _on_cancel(self) -> None:
         self.transcriber.cancel_transcription()
-        self.after(0, self._update_status, "Transcription cancelled.")
+        self.after(0, self._update_status, "Cancelling...")
 
     def _update_status(self, msg: str) -> None:
         self.status_lbl.config(text=msg)
-        # only stop spinner on final states:
-        if msg.startswith("Subtitle file") or msg.startswith("Error") or msg.startswith("Transcription cancelled"):
+        if msg.startswith("Batch complete") or msg.startswith("Batch cancelled") or msg.startswith("Error"):
             self.spinner.stop()
             self.go_btn.config(state="normal")
 
