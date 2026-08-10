@@ -58,40 +58,29 @@ _EXCLUDE_NAMES = {
     "isympy.py", "py.py", ".DS_Store",
 }
 
+_site_packages = Path(sysconfig.get_paths()["purelib"])
 
-def _bundle_namespace_package(module_name: str, extra_native_dirs: tuple[str, ...] = ()) -> None:
-    """PEP 420 namespace packages (no __init__.py) can't go through
-    py2app's 'packages' option - its legacy imp-based
-    collect_packagedirs can't find them at all. Bundle by walking the
-    real directory and adding every subdirectory containing .py files as
-    its own DATA_FILES entry, mirroring the source layout, plus any
-    native .dylib/.metallib files a compiled extension needs at runtime
-    (e.g. mlx/core.so's @rpath'd libmlx.dylib)."""
-    spec = importlib.util.find_spec(module_name)
-    if spec is None or not spec.submodule_search_locations:
-        return
-    pkg_dir = Path(list(spec.submodule_search_locations)[0])
-
-    for native_subdir in extra_native_dirs:
-        native_dir = pkg_dir / native_subdir
-        native_files = [str(p) for p in native_dir.glob("*.dylib")] + [str(p) for p in native_dir.glob("*.metallib")]
-        if native_files:
-            DATA_FILES.append((f"lib/python{PY_VER}/lib-dynload/{module_name}/{native_subdir}", native_files))
-
-    exclude_dirs = {"include", "share", "cmake", "__pycache__"}
-    for dirpath, dirnames, filenames in os.walk(pkg_dir):
-        dirnames[:] = [d for d in dirnames if d not in exclude_dirs]
-        py_files = [str(Path(dirpath) / f) for f in filenames if f.endswith(".py") or f == "py.typed"]
-        if py_files:
-            rel = Path(dirpath).relative_to(pkg_dir)
-            dest = f"lib/python{PY_VER}/{module_name}" if str(rel) == "." else f"lib/python{PY_VER}/{module_name}/{rel}"
-            DATA_FILES.append((dest, py_files))
-
+# mlx and tiktoken_ext ship as PEP 420 namespace packages (no __init__.py).
+# That breaks py2app in two separate ways: its legacy imp-based
+# collect_packagedirs can't find them at all if listed in 'packages'
+# (crashes with "No module named ..."), and even bundled by hand, py2app's
+# automatic tracing places a compiled extension (mlx/core.so) via a
+# mechanism that never establishes a real, filesystem-searchable __path__
+# for the rest of the package - a sibling pure-Python file
+# (mlx/_reprlib_fix.py, imported internally by core.so) failed with
+# ModuleNotFoundError even sitting right next to core.so in the same
+# directory. Giving them a real (empty) __init__.py turns them into
+# ordinary packages as far as ALL of py2app's tooling is concerned, so
+# they go through the exact same wholesale-copy path that already works
+# correctly for regular packages like torch - no special-casing needed.
+for _ns_pkg in ("mlx", "tiktoken_ext"):
+    _ns_spec = importlib.util.find_spec(_ns_pkg)
+    if _ns_spec is not None and _ns_spec.submodule_search_locations:
+        (Path(list(_ns_spec.submodule_search_locations)[0]) / "__init__.py").touch(exist_ok=True)
 
 PACKAGES: list[str] = []
 INCLUDES: list[str] = []
 
-_site_packages = Path(sysconfig.get_paths()["purelib"])
 for _entry in sorted(_site_packages.iterdir()):
     _name = _entry.name
     if _name.endswith((".dist-info", ".egg-info", ".pth")) or _name in _EXCLUDE_NAMES:
@@ -99,11 +88,10 @@ for _entry in sorted(_site_packages.iterdir()):
     if _entry.is_dir():
         if (_entry / "__init__.py").exists():
             PACKAGES.append(_name)
-        elif any(_entry.glob("*.py")) or any(_entry.glob("**/*.so")):
-            # mlx specifically ships a native lib/ dir its extension
-            # dlopens via @rpath; other namespace packages found here
-            # (e.g. tiktoken_ext, google) don't have that extra layer.
-            _bundle_namespace_package(_name, extra_native_dirs=("lib",) if _name == "mlx" else ())
+        # else: a genuine namespace package we haven't needed to handle
+        # yet - if one shows up, it'll surface as a runtime ImportError
+        # same as mlx/tiktoken_ext did, with a clear traceback pointing
+        # at exactly which name is missing.
     elif _entry.suffix == ".py":
         INCLUDES.append(_entry.stem)
         # 'includes' alone isn't reliable for top-level single-file

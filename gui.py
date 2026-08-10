@@ -106,8 +106,19 @@ class AudioToSRTConverter(tk.Tk):
         help_window.title("Help Information")
         help_window.geometry("650x280")
 
-        backend = select_backend()
-        device = backend.device_label()
+        try:
+            backend = select_backend()
+            device = backend.device_label()
+        except Exception as e:
+            # Show the failure instead of leaving the window blank -
+            # backend selection can fail (e.g. a broken optional install).
+            ttk.Label(
+                help_window,
+                text=f"Could not determine the active backend:\n\n{e}",
+                justify=tk.LEFT, foreground="red",
+            ).pack(padx=10, pady=10)
+            return
+
         help_text = f"""
 What this script does?
 Add one or more audio/video files (or a whole folder, or a YouTube URL) to the queue,
