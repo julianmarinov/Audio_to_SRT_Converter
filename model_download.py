@@ -32,6 +32,10 @@ _WATCH_DIRS = [
     Path.home() / ".cache" / "huggingface" / "hub",
 ]
 
+# Below this, what we're seeing is small metadata/lock files HF Hub
+# touches on every load (even cache hits), not an actual model download.
+_NOISE_FLOOR_BYTES = 1024 * 1024
+
 
 def _bytes_written_since(dirs: list[Path], since_ts: float) -> int:
     total = 0
@@ -81,7 +85,7 @@ class DownloadProgressWatcher:
         assert self._on_progress is not None
         while not self._stop.is_set():
             downloaded = _bytes_written_since(_WATCH_DIRS, self._since_ts)
-            if downloaded > 0:
+            if downloaded > _NOISE_FLOOR_BYTES:
                 percent = min(100, int(downloaded / self._expected_bytes * 100))
                 self._on_progress(percent, downloaded / (1024 * 1024), self._expected_bytes / (1024 * 1024))
             self._stop.wait(self._poll_interval)

@@ -9,6 +9,10 @@ select_backend() auto-picks the fastest one actually installed:
                        faster than openai-whisper on CUDA and CPU.
   3. openai-whisper - reference implementation, always available (required
                        dependency) - the guaranteed fallback.
+
+Loading and transcribing are separate steps (backend.load() -> a
+LoadedModel with its own .transcribe()) so a caller processing multiple
+chunks of one file only pays the model-load cost once.
 """
 from __future__ import annotations
 
@@ -52,16 +56,36 @@ class TranscriptionResult:
     language: Optional[str] = None
 
 
+class LoadedModel(Protocol):
+    def transcribe(self, audio_path: str) -> TranscriptionResult:
+        ...
+
+
 class TranscriptionBackend(Protocol):
     name: str
 
-    def transcribe(
-        self, audio_path: str, model_size: str, on_progress: Optional[ProgressCallback] = None
-    ) -> TranscriptionResult:
+    def load(self, model_size: str, on_progress: Optional[ProgressCallback] = None) -> LoadedModel:
         ...
 
     def device_label(self) -> str:
         ...
+
+
+class _OpenAIWhisperLoadedModel:
+    def __init__(self, model, device: torch.device) -> None:
+        self._model = model
+        self._device = device
+
+    def transcribe(self, audio_path: str) -> TranscriptionResult:
+        with torch.no_grad():
+            # fp16 autocast is only reliable on CUDA; on MPS it produces
+            # garbled/repeated output, and CPU doesn't support it at all.
+            result = self._model.transcribe(audio_path, fp16=(self._device.type == "cuda"))
+        segments = [
+            Segment(start=seg["start"], end=seg["end"], text=seg["text"].strip())
+            for seg in result["segments"]
+        ]
+        return TranscriptionResult(segments=segments, language=result.get("language"))
 
 
 class OpenAIWhisperBackend:
@@ -77,25 +101,26 @@ class OpenAIWhisperBackend:
     def device_label(self) -> str:
         return get_device().type
 
-    def transcribe(
-        self, audio_path: str, model_size: str, on_progress: Optional[ProgressCallback] = None
-    ) -> TranscriptionResult:
+    def load(self, model_size: str, on_progress: Optional[ProgressCallback] = None) -> _OpenAIWhisperLoadedModel:
         device = get_device()
         with DownloadProgressWatcher(model_size, on_progress):
             model = self._whisper.load_model(model_size, device=device)
         if device.type == "cuda":
             model = model.half()
+        return _OpenAIWhisperLoadedModel(model, device)
 
-        with torch.no_grad():
-            # fp16 autocast is only reliable on CUDA; on MPS it produces
-            # garbled/repeated output, and CPU doesn't support it at all.
-            result = model.transcribe(audio_path, fp16=(device.type == "cuda"))
 
+class _FasterWhisperLoadedModel:
+    def __init__(self, model) -> None:
+        self._model = model
+
+    def transcribe(self, audio_path: str) -> TranscriptionResult:
+        segments_gen, info = self._model.transcribe(audio_path)
         segments = [
-            Segment(start=seg["start"], end=seg["end"], text=seg["text"].strip())
-            for seg in result["segments"]
+            Segment(start=seg.start, end=seg.end, text=seg.text.strip())
+            for seg in segments_gen
         ]
-        return TranscriptionResult(segments=segments, language=result.get("language"))
+        return TranscriptionResult(segments=segments, language=info.language)
 
 
 class FasterWhisperBackend:
@@ -112,18 +137,35 @@ class FasterWhisperBackend:
     def device_label(self) -> str:
         return self._device
 
-    def transcribe(
-        self, audio_path: str, model_size: str, on_progress: Optional[ProgressCallback] = None
-    ) -> TranscriptionResult:
+    def load(self, model_size: str, on_progress: Optional[ProgressCallback] = None) -> _FasterWhisperLoadedModel:
         with DownloadProgressWatcher(model_size, on_progress):
             model = self._WhisperModel(model_size, device=self._device, compute_type=self._compute_type)
+        return _FasterWhisperLoadedModel(model)
 
-        segments_gen, info = model.transcribe(audio_path)
+
+class _MLXWhisperLoadedModel:
+    """mlx_whisper.transcribe() loads (and downloads, if needed) the model
+    internally on every call - there's no separate load step to hook. The
+    download watcher is therefore attached only to the first transcribe()
+    call; later calls (e.g. subsequent chunks) reuse the already-downloaded
+    local cache so there's nothing left to watch."""
+
+    def __init__(self, mlx_whisper_module, repo: str, model_size: str, on_progress: Optional[ProgressCallback]) -> None:
+        self._mlx_whisper = mlx_whisper_module
+        self._repo = repo
+        self._model_size = model_size
+        self._pending_progress = on_progress
+
+    def transcribe(self, audio_path: str) -> TranscriptionResult:
+        progress = self._pending_progress
+        self._pending_progress = None
+        with DownloadProgressWatcher(self._model_size, progress):
+            result = self._mlx_whisper.transcribe(audio_path, path_or_hf_repo=self._repo)
         segments = [
-            Segment(start=seg.start, end=seg.end, text=seg.text.strip())
-            for seg in segments_gen
+            Segment(start=seg["start"], end=seg["end"], text=seg["text"].strip())
+            for seg in result["segments"]
         ]
-        return TranscriptionResult(segments=segments, language=info.language)
+        return TranscriptionResult(segments=segments, language=result.get("language"))
 
 
 class MLXWhisperBackend:
@@ -147,21 +189,9 @@ class MLXWhisperBackend:
     def device_label(self) -> str:
         return "mps (mlx)"
 
-    def transcribe(
-        self, audio_path: str, model_size: str, on_progress: Optional[ProgressCallback] = None
-    ) -> TranscriptionResult:
+    def load(self, model_size: str, on_progress: Optional[ProgressCallback] = None) -> _MLXWhisperLoadedModel:
         repo = self._MODEL_REPOS.get(model_size, self._MODEL_REPOS["small"])
-        # mlx_whisper.transcribe() loads (and downloads, if needed) the
-        # model internally - there's no separate load step to wrap, so the
-        # download watcher spans the whole call.
-        with DownloadProgressWatcher(model_size, on_progress):
-            result = self._mlx_whisper.transcribe(audio_path, path_or_hf_repo=repo)
-
-        segments = [
-            Segment(start=seg["start"], end=seg["end"], text=seg["text"].strip())
-            for seg in result["segments"]
-        ]
-        return TranscriptionResult(segments=segments, language=result.get("language"))
+        return _MLXWhisperLoadedModel(self._mlx_whisper, repo, model_size, on_progress)
 
 
 def select_backend() -> TranscriptionBackend:
