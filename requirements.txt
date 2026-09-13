@@ -1,6 +1,6 @@
 openai-whisper>=20231117
 torch>=2.2
-yt-dlp>=2024.1.0
+yt-dlp>=2026.8.19  # YouTube changes its anti-bot/serving logic often; bump this whenever downloads start failing with 403s
 
 # macOS app-bundling tools (used only if packaging with `python setup.py py2app`)
 modulegraph~=0.19.6
