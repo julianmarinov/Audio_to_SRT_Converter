@@ -71,6 +71,11 @@ certificate). Click **More info**, then **Run anyway**.
    `.json`; you can select more than one
 4. Click **Transcribe Queue**
 
+Files are processed one at a time, in order — queuing more files doesn't
+speed things up, it just means less babysitting. Click **Cancel** to stop;
+it takes effect after the current chunk or file finishes, not instantly
+mid-sentence.
+
 Output files are saved:
 - **Local files:** right next to the original file, same name, new extension
 - **YouTube links:** in your **Downloads** folder, named after the video's
@@ -109,6 +114,33 @@ first run.
   user/home directory and can add up to a few GB if you use several model
   sizes. Safe to delete if you need the space back — they just re-download
   next time.
+
+## FAQ
+
+**Does it work with languages other than English?**
+Yes — Whisper (the AI model behind this app) automatically detects the
+spoken language and transcribes dozens of languages, not just English.
+
+**Does it translate?**
+No. It transcribes in whatever language is actually spoken — it doesn't
+translate into English or any other language.
+
+**Which output format should I use?**
+`.srt` is the standard choice for adding subtitles in a video editor or
+media player. `.vtt` is the web equivalent (used by HTML5 video). `.txt`
+is just the words, no timestamps — good for reading, searching, or feeding
+into something else. `.json` includes timestamps in a structured format,
+useful if you're a developer building on top of the output.
+
+**Why is the download so large (~400MB)?**
+It bundles a full Python environment, the AI libraries, and ffmpeg, so it
+runs standalone with nothing separate to install. The AI models themselves
+are downloaded separately, on first use (see above).
+
+**Does it need an internet connection?**
+Only for two things: downloading a model the first time you use that size,
+and fetching a video's audio when you give it a YouTube link. Everything
+else — the actual transcription — runs offline.
 
 ## Running from source / contributing
 
