@@ -114,7 +114,7 @@ OPTIONS = {
         "gui", "model_download", "remote_input",
     ] + INCLUDES,
     "plist": {
-        "CFBundleName": "Audio to SRT Converter",
+        "CFBundleName": "Local Transcription & Subtitle Creator",
         "CFBundleShortVersionString": "1.0.0",
         "NSHighResolutionCapable": True,
     },

@@ -1,4 +1,4 @@
-# Audio to SRT Converter
+# Local Transcription & Subtitle Creator
 
 This repository contains a Python script for converting audio and video files into
 subtitle files (.srt, .vtt, .txt, .json) using OpenAI's Whisper model. The script is

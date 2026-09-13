@@ -1,4 +1,4 @@
-# Audio to SRT Converter
+# Local Transcription & Subtitle Creator
 
 A free, private, local app for turning audio and video into subtitles — no
 account, no upload, no subscription. Point it at a file, a folder, or a
@@ -27,11 +27,11 @@ video's audio, not your transcript, and not any of your own data).
 **Requires an Apple Silicon Mac** (M1, M2, M3, or M4 — anything from late
 2020 onward). It will not run on an Intel Mac.
 
-1. Go to the [Releases page](https://github.com/julianmarinov/Audio_to_SRT_Converter/releases)
+1. Go to the [Releases page](https://github.com/julianmarinov/local-transcription-subtitle-creator/releases)
    and download the latest `.zip`
 2. Double-click the downloaded `.zip` to unzip it
-3. Drag **Audio to SRT Converter.app** into your Applications folder (optional,
-   but tidier)
+3. Drag **Local Transcription & Subtitle Creator.app** into your Applications
+   folder (optional, but tidier)
 4. **First launch only:** right-click (or Control-click) the app and choose
    **Open**, then click **Open** again in the dialog that appears
 

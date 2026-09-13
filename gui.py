@@ -18,7 +18,7 @@ _AUDIO_VIDEO_SUFFIXES = {ext.replace("*", "") for ext in AUDIO_VIDEO_EXTENSIONS}
 class AudioToSRTConverter(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
-        self.title("Audio to SRT Converter")
+        self.title("Local Transcription & Subtitle Creator")
         self.geometry("820x680")
         self.transcriber = TranscriptionService()
         self._queue_rows: dict[str, str] = {}  # input_path -> Treeview item id
