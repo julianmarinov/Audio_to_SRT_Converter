@@ -10,6 +10,13 @@ on:
       - "v*"
   workflow_dispatch: {}
 
+# softprops/action-gh-release needs write access to create/update releases -
+# many repos now default their Actions token to read-only, which is what
+# caused every step here to succeed except the final "Attach to release"
+# one on the first real run of this workflow.
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
