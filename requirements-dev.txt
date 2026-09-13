@@ -1,2 +1,9 @@
 -r requirements.txt
 pytest>=8.0
+
+# For building the Windows .exe (windows.spec) - see .github/workflows/build-windows.yml.
+# Not restricted to Windows: `pyinstaller windows.spec` also runs on macOS/Linux and is
+# useful there to sanity-check the spec's import-collection logic, even though it can only
+# ever produce a binary for whichever OS it's run on, never a real cross-compiled .exe.
+pyinstaller>=6.0
+pyinstaller-hooks-contrib

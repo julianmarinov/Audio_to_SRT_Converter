@@ -2,8 +2,11 @@
 # openai-whisper if installed (see backends.select_backend). Neither is
 # required; openai-whisper (in requirements.txt) always works as a fallback.
 
-# Fastest option on Apple Silicon (native Metal GPU). macOS + arm64 only.
-mlx-whisper>=0.4.0
+# Fastest option on Apple Silicon (native Metal GPU). macOS + arm64 only -
+# the marker below is required, not just documentation: no mlx wheel exists
+# for Windows/Linux, so without it `pip install -r requirements-optional.txt`
+# hard-fails on those platforms instead of just skipping this line.
+mlx-whisper>=0.4.0; sys_platform == "darwin" and platform_machine == "arm64"
 
 # Faster than openai-whisper on CUDA and CPU. No MPS support - CPU-only on
 # Mac, so mlx-whisper is preferred there when both are installed.

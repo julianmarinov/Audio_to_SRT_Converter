@@ -9,18 +9,24 @@ os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 
 
 def _prepend_bundled_ffmpeg_to_path() -> None:
-    """When packaged as a .app via py2app, ffmpeg/ffprobe ship directly in
-    Contents/Resources (not a "bin" subfolder - Homebrew's binaries
-    reference their dylibs via @executable_path/../Frameworks, which only
-    resolves to py2app's actual Contents/Frameworks/ from that exact
-    location) so the app works without a Homebrew install. In a normal
-    `python main.py` dev run, sys.frozen isn't set and this is a no-op -
-    PATH is used as-is."""
+    """When packaged, ffmpeg/ffprobe ship alongside the app so it works
+    without a separate ffmpeg install. Layout differs by packager:
+      - macOS (py2app): binaries sit directly in Contents/Resources (not a
+        "bin" subfolder - Homebrew's binaries reference their dylibs via
+        @executable_path/../Frameworks, which only resolves to py2app's
+        actual Contents/Frameworks/ from that exact location).
+      - Windows/Linux (PyInstaller): --onedir places added binaries next to
+        the exe; --onefile extracts them to sys._MEIPASS instead.
+    In a normal `python main.py` dev run, sys.frozen isn't set and this is
+    a no-op - PATH is used as-is."""
     if not getattr(sys, "frozen", False):
         return
-    bundled_resources = Path(sys.executable).resolve().parent.parent / "Resources"
-    if bundled_resources.is_dir():
-        os.environ["PATH"] = f"{bundled_resources}{os.pathsep}{os.environ.get('PATH', '')}"
+    if sys.platform == "darwin":
+        bundled_dir = Path(sys.executable).resolve().parent.parent / "Resources"
+    else:
+        bundled_dir = Path(getattr(sys, "_MEIPASS", None) or Path(sys.executable).resolve().parent)
+    if bundled_dir.is_dir():
+        os.environ["PATH"] = f"{bundled_dir}{os.pathsep}{os.environ.get('PATH', '')}"
 
 
 _prepend_bundled_ffmpeg_to_path()

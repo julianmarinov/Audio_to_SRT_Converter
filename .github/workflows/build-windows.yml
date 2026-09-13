@@ -1,0 +1,55 @@
+name: Build Windows executable
+
+# Runs on GitHub's own Windows runners since a Windows .exe can't be
+# cross-compiled from macOS/Linux - PyInstaller (like py2app on the Mac
+# side) bundles whatever's installed on the machine it runs on, including
+# OS-specific compiled extensions.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-optional.txt
+          pip install pyinstaller pyinstaller-hooks-contrib
+
+      - name: Download static ffmpeg/ffprobe (bundled so users don't need a separate install)
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip" -OutFile ffmpeg.zip
+          Expand-Archive ffmpeg.zip -DestinationPath ffmpeg_extracted
+          $bin = Get-ChildItem -Path ffmpeg_extracted -Recurse -Filter "ffmpeg.exe" | Select-Object -First 1 | Split-Path -Parent
+          Copy-Item "$bin\ffmpeg.exe" .
+          Copy-Item "$bin\ffprobe.exe" .
+
+      - name: Build with PyInstaller
+        run: pyinstaller windows.spec
+
+      - name: Zip the build
+        shell: pwsh
+        run: Compress-Archive -Path "dist/Local Transcription & Subtitle Creator" -DestinationPath "Local-Transcription-Subtitle-Creator-Windows.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: Local-Transcription-Subtitle-Creator-Windows.zip
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Local-Transcription-Subtitle-Creator-Windows.zip

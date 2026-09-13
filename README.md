@@ -4,7 +4,7 @@ A free, private, local app for turning audio and video into subtitles — no
 account, no upload, no subscription. Point it at a file, a folder, or a
 YouTube link, and it writes out a subtitle file next to it.
 
-Runs entirely on your Mac. Nothing you transcribe is ever sent anywhere,
+Runs entirely on your own computer. Nothing you transcribe is ever sent anywhere,
 except the one-time download when you give it a YouTube link (the fetched
 video's audio, not your transcript, and not any of your own data).
 
@@ -24,11 +24,15 @@ video's audio, not your transcript, and not any of your own data).
 
 ## Download
 
+Grab the latest build for your platform from the
+[Releases page](https://github.com/julianmarinov/local-transcription-subtitle-creator/releases).
+
+### macOS
+
 **Requires an Apple Silicon Mac** (M1, M2, M3, or M4 — anything from late
 2020 onward). It will not run on an Intel Mac.
 
-1. Go to the [Releases page](https://github.com/julianmarinov/local-transcription-subtitle-creator/releases)
-   and download the latest `.zip`
+1. Download the latest `.zip` from Releases
 2. Double-click the downloaded `.zip` to unzip it
 3. Drag **Local Transcription & Subtitle Creator.app** into your Applications
    folder (optional, but tidier)
@@ -43,6 +47,19 @@ warning; right-click → Open is the way around that, and you only need to do
 it once. If your Mac doesn't offer an "Open" option that way, check **System
 Settings → Privacy & Security** — there's usually an "Open Anyway" button
 there after the first blocked attempt.
+
+### Windows
+
+Requires an NVIDIA GPU (CUDA) for best performance, but also runs on CPU if
+you don't have one — just slower.
+
+1. Download the latest `.zip` from Releases
+2. Unzip it anywhere
+3. Double-click **Local Transcription & Subtitle Creator.exe** inside
+
+Windows may show a "Windows protected your PC" SmartScreen warning the first
+time, for the same reason as macOS's warning above (no paid code-signing
+certificate). Click **More info**, then **Run anyway**.
 
 ## How to use it
 
@@ -76,7 +93,7 @@ you'll actually publish or rely on, use `large` if you don't mind the wait.
 
 The app downloads that model from the internet the first time you use it (a
 few hundred MB to a few GB, depending on size). After that, it's cached on
-your Mac and every future transcription with that model works completely
+your computer and every future transcription with that model works completely
 offline. You'll see a "Downloading model..." progress message during that
 first run.
 
@@ -88,15 +105,15 @@ first run.
 - **A YouTube download can occasionally fail** with an error mentioning
   "403 Forbidden." This is YouTube's side, not the app being broken —
   waiting a moment and retrying almost always works.
-- **Disk space:** downloaded models are cached in a hidden folder in your
-  home directory (`~/.cache`) and can add up to a few GB if you use several
-  model sizes. Safe to delete if you need the space back — they just
-  re-download next time.
+- **Disk space:** downloaded models are cached in a `.cache` folder in your
+  user/home directory and can add up to a few GB if you use several model
+  sizes. Safe to delete if you need the space back — they just re-download
+  next time.
 
 ## Running from source / contributing
 
 This repo also contains the full Python source, if you want to modify it,
-run it on Windows or Linux, or build it yourself. See
+run it on Linux, or build it yourself. See
 [`Documentation/How to install dependencies.txt`](Documentation/How%20to%20install%20dependencies.txt)
 for setup steps on both macOS and Windows.
 
