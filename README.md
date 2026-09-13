@@ -25,7 +25,7 @@ video's audio, not your transcript, and not any of your own data).
 ## Download
 
 Grab the latest build for your platform from the
-[Releases page](https://github.com/julianmarinov/local-transcription-subtitle-creator/releases).
+[Releases page](https://github.com/julianmarinov/Local-Transcription-and-Subtitle-Creator/releases).
 
 ### macOS
 
