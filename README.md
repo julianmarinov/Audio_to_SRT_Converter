@@ -112,10 +112,12 @@ first run.
 
 ## Running from source / contributing
 
-This repo also contains the full Python source, if you want to modify it,
-run it on Linux, or build it yourself. See
+This repo also contains the full Python source, if you want to modify it or
+build it yourself. See
 [`Documentation/How to install dependencies.txt`](Documentation/How%20to%20install%20dependencies.txt)
-for setup steps on both macOS and Windows.
+for setup steps on macOS and Windows. Nothing in the code is Mac/Windows-
+specific, so it should also run on Linux from source, but that hasn't
+actually been tested.
 
 ## License
 
