@@ -80,7 +80,14 @@ class _OpenAIWhisperLoadedModel:
         with torch.no_grad():
             # fp16 autocast is only reliable on CUDA; on MPS it produces
             # garbled/repeated output, and CPU doesn't support it at all.
-            result = self._model.transcribe(audio_path, fp16=(self._device.type == "cuda"))
+            # condition_on_previous_text=False: feeding each segment's own
+            # previous output back in as decoding context is the standard
+            # cause of runaway repetition loops (one bad/repetitive segment
+            # poisons every segment after it) - worth the minor loss of
+            # cross-segment terminology consistency.
+            result = self._model.transcribe(
+                audio_path, fp16=(self._device.type == "cuda"), condition_on_previous_text=False
+            )
         segments = [
             Segment(start=seg["start"], end=seg["end"], text=seg["text"].strip())
             for seg in result["segments"]
@@ -115,7 +122,10 @@ class _FasterWhisperLoadedModel:
         self._model = model
 
     def transcribe(self, audio_path: str) -> TranscriptionResult:
-        segments_gen, info = self._model.transcribe(audio_path)
+        # See the matching comment in _OpenAIWhisperLoadedModel.transcribe -
+        # condition_on_previous_text=False avoids compounding repetition
+        # loops across segments.
+        segments_gen, info = self._model.transcribe(audio_path, condition_on_previous_text=False)
         segments = [
             Segment(start=seg.start, end=seg.end, text=seg.text.strip())
             for seg in segments_gen
@@ -159,8 +169,13 @@ class _MLXWhisperLoadedModel:
     def transcribe(self, audio_path: str) -> TranscriptionResult:
         progress = self._pending_progress
         self._pending_progress = None
+        # See the matching comment in _OpenAIWhisperLoadedModel.transcribe -
+        # condition_on_previous_text=False avoids compounding repetition
+        # loops across segments.
         with DownloadProgressWatcher(self._model_size, progress):
-            result = self._mlx_whisper.transcribe(audio_path, path_or_hf_repo=self._repo)
+            result = self._mlx_whisper.transcribe(
+                audio_path, path_or_hf_repo=self._repo, condition_on_previous_text=False
+            )
         segments = [
             Segment(start=seg["start"], end=seg["end"], text=seg["text"].strip())
             for seg in result["segments"]
